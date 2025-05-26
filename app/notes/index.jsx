@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -9,20 +10,37 @@ import {
 } from "react-native";
 import AddNoteModal from "../../components/AddNoteModal";
 import NoteList from "../../components/NoteList";
+import { useAuth } from "../../contexts/authContext";
 import noteService from "../../services/noteService";
 
 const NoteScreen = () => {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newNote, setNewNote] = useState({
+    title: "",
+    content: "",
+  });
 
   useEffect(() => {
-    fetchNotes();
-  }, []);
+    if (!authLoading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (user) {
+      fetchNotes();
+    }
+  }, [user]);
 
   const fetchNotes = async () => {
     setLoading(true);
-    const resp = await noteService.getNotes();
+    const resp = await noteService.getNotes(user.$id);
 
     if (resp.error) {
       setError(resp.error);
@@ -32,6 +50,25 @@ const NoteScreen = () => {
       setError(null);
     }
     setLoading(false);
+  };
+
+  const addNote = async () => {
+    if (newNote.title.trim() === "" || newNote.content.trim() === "") return;
+
+    const response = await noteService.addNote(
+      user.$id,
+      newNote.title,
+      newNote.content
+    );
+
+    if (response.error) {
+      Alert.alert("Error", response.error);
+    } else {
+      setNotes((prev) => [response.data, ...prev]);
+      setNewNote({ title: "", content: "" });
+    }
+
+    setModalVisible(false);
   };
 
   const deleteNote = async (id) => {
@@ -63,8 +100,6 @@ const NoteScreen = () => {
     );
   };
 
-  const [addModalVisible, setAddModalVisible] = useState(false);
-
   return (
     <View style={styles.container}>
       {loading ? (
@@ -72,6 +107,9 @@ const NoteScreen = () => {
       ) : (
         <>
           {error && <Text style={styles.errorText}>{error}</Text>}
+          {notes.length === 0 && !error && (
+            <Text style={styles.noNotesText}>You have no notes!</Text>
+          )}
           <NoteList
             notes={notes}
             onDelete={deleteNote}
@@ -82,15 +120,17 @@ const NoteScreen = () => {
 
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => setAddModalVisible(true)}
+        onPress={() => setModalVisible(true)}
       >
         <Text style={styles.addButtonText}>+ Add Note</Text>
       </TouchableOpacity>
 
       <AddNoteModal
-        modalVisible={addModalVisible}
-        setModalVisible={setAddModalVisible}
-        setNotes={setNotes}
+        modalVisible={modalVisible}
+        setModalVisible={setModalVisible}
+        setNewNote={setNewNote}
+        newNote={newNote}
+        addNote={addNote}
       />
     </View>
   );
@@ -126,6 +166,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
     fontSize: 16,
+  },
+  noNotesText: {
+    fontSize: 18,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 20,
   },
 });
 

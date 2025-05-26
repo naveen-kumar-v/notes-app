@@ -31,7 +31,8 @@ const authService = {
 
   async getUser() {
     try {
-      return await account.get();
+      const response = await account.get();
+      return response;
     } catch (error) {
       return null;
     }

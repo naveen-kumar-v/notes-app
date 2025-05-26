@@ -1,11 +1,11 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import authService from "../services/authService";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const checkUser = async () => {
     setLoading(true);
     const resp = await authService.getUser();
-    if (resp.error) {
+    if (!resp) {
       setUser(null);
     } else {
       setUser(resp);
@@ -44,10 +44,24 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    const response = await authService.logout();
-    if (response.error) {
-      return response;
-    }
+    await authService.logout();
+    setUser(null);
     await checkUser();
   };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
+
+export const useAuth = () => useContext(AuthContext);
